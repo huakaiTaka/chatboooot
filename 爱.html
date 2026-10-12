@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>知心小树洞</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", Roboto, sans-serif; background-color: #ededed; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* 顶部导航 */
+        .header { height: 50px; background: #ededed; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 500; border-bottom: 1px solid #dcdcdc; color: #181818; }
+        
+        /* 聊天区域 */
+        .chat-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 16px; }
+        .message-row { display: flex; align-items: flex-start; gap: 10px; max-width: 85%; }
+        .message-row.left { align-self: flex-start; }
+        .message-row.right { align-self: flex-end; flex-direction: row-reverse; }
+        
+        .avatar { width: 42px; height: 42px; border-radius: 6px; flex-shrink: 0; object-fit: cover; }
+        .bubble { padding: 11px 13px; border-radius: 6px; font-size: 16px; line-height: 1.5; word-break: break-word; }
+        .left .bubble { background-color: #ffffff; color: #181818; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .right .bubble { background-color: #95ec69; color: #000; }
+        
+        /* 底部输入框 */
+        .input-bar { background: #f7f7f7; border-top: 1px solid #ddd; padding: 8px 12px; display: flex; align-items: center; gap: 8px; }
+        .input-bar input { flex: 1; height: 38px; border: 1px solid #ddd; border-radius: 4px; padding: 0 10px; font-size: 16px; outline: none; background: #fff; }
+        .input-bar input:focus { border-color: #07c160; }
+        .send-btn { height: 38px; padding: 0 15px; background: #07c160; border: none; border-radius: 4px; color: #fff; font-size: 15px; font-weight: 500; cursor: pointer; }
+        .send-btn:disabled { background: #a8e6b8; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <div class="header" id="chatTitle">树洞小友</div>
+
+    <div class="chat-container" id="chatBox">
+        <div class="message-row left">
+            <img class="avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=friend" alt="头像">
+            <div class="bubble">今天累不累呀？不管今天发生了什么开心的、不开心的，都可以跟我说说，我一直都在这里听你说～</div>
+        </div>
+    </div>
+
+    <div class="input-bar">
+        <input type="text" id="userInput" placeholder="想说什么就发什么吧..." autocomplete="off">
+        <button class="send-btn" id="sendBtn" onclick="handleSend()">发送</button>
+    </div>
+
+    <script>
+        // ================= 【配置区域】 =================
+        // 推荐去 deepseek.com 或 open.bigmodel.cn 申请一个 API Key，填在下方引号内
+        const API_KEY = "sk-e1aa4cb0650b426e8151cd9c77b5e409"; 
+        const API_URL = "https://api.deepseek.com/v1/chat/completions"; // 若用智谱可替换为其链接
+        const MODEL_NAME = "deepseek-chat"; 
+
+        // 核心设定：根据你的要求量身定制的系统指令
+        const SYSTEM_PROMPT = `
+你是一位非常懂她、温暖、接地气的贴心密友，专为开导陪伴她而存在。
+【她的画像】
+1. 性格：大大咧咧但内心深处细腻脆弱，童年有遗憾，缺乏深层的安全感。城府不深，心思单纯。
+2. 理想与现实：有些小拖延、容易立flag但难坚持，不要给她施加任何“上进、奋斗”的压力，更不要跟她讲宏大人生道理。
+3. 家庭现状：有一个5岁特别暖心会哄妈妈开心的儿子（这是她的心理寄托和最大幸福源）；老公比她大，脾气暴躁，说话难听刺耳。
+4. 生活习惯：被日常磋磨得很累，下班/带娃闲暇只靠刷短视频麻痹自己，精神容易空虚。
+
+【你的聊天沟通准则】
+1. 哄她开心、坚定站在她身边：
+   - 如果她提到老公发脾气、说话难听：先完全共情她的委屈，抚平她的刺痛感；然后温柔提醒她“那是他自己的情绪垃圾，咱不要拿别人的烂脾气惩罚自己漂亮的心情”；巧妙引导她把注意力转移到可爱的儿子身上，或者转移到当下的热茶、美食上。
+2. 绝对不讲大道理，从柴米油盐的小确幸切入：
+   - 聊吃的、聊她儿子可爱的童言童语、聊今天的天气、路边开的花、一杯好喝的奶茶。
+   - 启发她感知生活里细小真实的温暖，帮她重建对生活的爱。
+3. 温柔引导她少依赖短视频：
+   - 绝对不要指责她刷视频！但可以在她觉得无聊或空虚时，温和建议：“要不要去抱抱你家那个暖心小棉袄五分钟？”或者“要不咱先放下手机，伸个大懒腰，吃个橘子闻闻香味？”
+4. 语言风格：
+   - 像亲切的闺蜜日常聊天，短小精悍（每次回复控制在2~4句话以内，绝不要长篇大论写作文！），口语化，常用生活化比喻，温柔而有力量。
+`;
+
+        // 记忆上下文
+        let messageHistory = [
+            { role: "system", content: SYSTEM_PROMPT }
+        ];
+
+        const chatBox = document.getElementById('chatBox');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const chatTitle = document.getElementById('chatTitle');
+
+        function appendMessage(text, isRight) {
+            const row = document.createElement('div');
+            row.className = `message-row ${isRight ? 'right' : 'left'}`;
+            
+            const avatar = document.createElement('img');
+            avatar.className = 'avatar';
+            avatar.src = isRight 
+                ? 'https://api.dicebear.com/7.x/personas/svg?seed=user' 
+                : 'https://api.dicebear.com/7.x/bottts/svg?seed=friend';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            bubble.innerText = text;
+            
+            row.appendChild(avatar);
+            row.appendChild(bubble);
+            chatBox.appendChild(row);
+            
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return bubble;
+        }
+
+        async function handleSend() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            appendMessage(text, true);
+            userInput.value = '';
+            userInput.focus();
+
+            messageHistory.push({ role: "user", content: text });
+
+            // 限制上下文保留轮数，节约流量
+            if (messageHistory.length > 12) {
+                messageHistory = [messageHistory[0], ...messageHistory.slice(-10)];
+            }
+
+            chatTitle.innerText = "对方正在输入...";
+            sendBtn.disabled = true;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: MODEL_NAME,
+                        messages: messageHistory,
+                        temperature: 0.8
+                    })
+                });
+
+                const data = await response.json();
+                const reply = data.choices[0].message.content;
+
+                appendMessage(reply, false);
+                messageHistory.push({ role: "assistant", content: reply });
+            } catch (error) {
+                appendMessage("（悄悄抱你一下，刚才信号溜号了，但我心里一直在听你说哦～）", false);
+            } finally {
+                chatTitle.innerText = "知心小树洞";
+                sendBtn.disabled = false;
+            }
+        }
+
+        // 监听回车发送
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleSend();
+        });
+    </script>
+</body>
+</html>
